@@ -10,8 +10,10 @@ services:
     stdin_open: true
     tty: true
     volumes:
-      # Montage du fichier du modèle (Host -> Conteneur en lecture seule)
-      - /home/vrd/.cache/huggingface/hub/models--tencent--Hunyuan3D-2.1/snapshots/0b94677654c57bb9a6b6845cd7b704ccf551d327/hunyuan3d-dit-v2-1/:/root/.cache/hy3dgen/tencent/Hunyuan3D-2.1/hunyuan3d-dit-v2-1/
+      # Montage du snapshot complet pour inclure DiT, VAE et PaintPBR
+      - /home/vrd/.cache/huggingface/hub/models--tencent--Hunyuan3D-2.1/snapshots/0b94677654c57bb9a6b6845cd7b704ccf551d327/:/root/.cache/hy3dgen/tencent/Hunyuan3D-2.1/
+      # Montage des fichiers réels (blobs) pour résoudre les liens symboliques
+      - /home/vrd/.cache/huggingface/hub/models--tencent--Hunyuan3D-2.1/blobs/:/root/.cache/hy3dgen/blobs/
     command: ["python", "gradio_app.py", "--port", "7860"]
     deploy:
       resources:
