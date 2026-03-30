@@ -1,5 +1,5 @@
-# get the development image from nvidia cuda 12.4 (using devel for full CUDA toolkit)
-FROM nvidia/cuda:12.4.1-devel-ubuntu22.04
+# get the development image from nvidia cuda 12.8 (using devel for full CUDA toolkit to support Blackwell)
+FROM nvidia/cuda:12.8.0-devel-ubuntu22.04
 
 LABEL name="hunyuan3d21" maintainer="hunyuan3d21"
 
@@ -24,7 +24,8 @@ ENV PYOPENGL_PLATFORM=egl
 ENV CUDA_HOME=/usr/local/cuda
 ENV PATH=${CUDA_HOME}/bin:${PATH}
 ENV LD_LIBRARY_PATH=${CUDA_HOME}/lib64:${LD_LIBRARY_PATH}
-ENV TORCH_CUDA_ARCH_LIST="6.0;6.1;7.0;7.5;8.0;8.6;8.9;9.0"
+ENV TORCH_CUDA_ARCH_LIST="7.0;7.5;8.0;8.6;8.9;9.0;10.0"
+ENV CUDA_NVCC_FLAGS="-allow-unsupported-compiler"
 
 # install conda
 RUN wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh && \
@@ -50,26 +51,25 @@ ENV PATH="/workspace/miniconda3/envs/hunyuan3d21/bin:${PATH}"
 RUN conda config --set always_yes true
 
 RUN conda install Ninja
-RUN conda install cuda -c nvidia/label/cuda-12.4.1 -y
 
 # Update libstdcxx-ng to fix compatibility issues (auto-confirm)
 RUN conda install -c conda-forge libstdcxx-ng -y
 
-RUN pip install torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 --index-url https://download.pytorch.org/whl/cu124
+# Install PyTorch (assuming version 2.6.0+ is standard in 2026 for CC 10.0 support)
+RUN pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128 || \
+    pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124
 
-# Clone Hunyuan3D-2.1 repository
+# Pre-install dependencies to leverage Docker layer caching
+COPY requirements.txt /workspace/Hunyuan3D-2.1/requirements.txt
+RUN pip install -r /workspace/Hunyuan3D-2.1/requirements.txt
+
+# Now copy the rest of the project
 COPY . /workspace/Hunyuan3D-2.1/
-
-# Install Python dependencies from modified requirements.txt
-RUN pip install -r Hunyuan3D-2.1/requirements.txt
 
 # Install custom_rasterizer
 RUN cd /workspace/Hunyuan3D-2.1/hy3dpaint/custom_rasterizer && \
-    # Set compilation environment variables
-    export TORCH_CUDA_ARCH_LIST="6.0;6.1;7.0;7.5;8.0;8.6;8.9;9.0" && \
-    export CUDA_NVCC_FLAGS="-allow-unsupported-compiler" && \
     # Install with editable mode
-    pip install -e . --no-build-isolation -e .
+    pip install -e . --no-build-isolation
 
 # Install DifferentiableRenderer
 RUN cd /workspace/Hunyuan3D-2.1/hy3dpaint/DifferentiableRenderer && \
@@ -110,5 +110,5 @@ RUN rm -f /workspace/*.zip && \
 
 # Set default command
 WORKDIR /workspace/Hunyuan3D-2.1
-RUN mkdir gradio_cache
+RUN mkdir -p gradio_cache
 CMD ["python", "api_server.py"]
